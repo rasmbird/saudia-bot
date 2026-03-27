@@ -1,7 +1,11 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 client.once('ready', () => {
@@ -13,7 +17,7 @@ client.on('messageCreate', message => {
 
   // Ping command
   if (message.content === '!ping') {
-    message.reply('Pong 🟢');
+    message.reply('Bot is online.');
   }
 
   // Flight log command
@@ -28,13 +32,28 @@ client.on('messageCreate', message => {
     const from = args[1];
     const to = args[2];
 
-    message.channel.send(`
-✈️ **Flight Logged**
-👨‍✈️ Pilot: ${message.author}
-🔢 Flight: ${flightNumber}
-📍 Route: ${from} → ${to}
-🕒 Time: ${new Date().toLocaleString()}
-    `);
+    // Find flight-logs channel
+    const logChannel = message.guild.channels.cache.find(
+      channel => channel.name === 'flight-logs'
+    );
+
+    if (!logChannel) {
+      return message.reply('Flight log channel not found.');
+    }
+
+    const logMessage = `
+Flight Log
+-------------------------
+Pilot: ${message.author.tag}
+Flight Number: ${flightNumber}
+Route: ${from} -> ${to}
+Time: ${new Date().toLocaleString()}
+-------------------------
+`;
+
+    logChannel.send(logMessage);
+
+    message.reply('Flight logged successfully.');
   }
 });
 
