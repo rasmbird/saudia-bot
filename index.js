@@ -31,6 +31,7 @@ const commands = [
       option.setName('to')
         .setDescription('Arrival Airport (e.g. JED)')
         .setRequired(true)),
+
   new SlashCommandBuilder()
     .setName('stats')
     .setDescription('Check total flights logged for a pilot')
@@ -38,9 +39,38 @@ const commands = [
       option.setName('pilot')
         .setDescription('Select a pilot')
         .setRequired(false)),
+
   new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Show top pilots by flights logged')
+    .setDescription('Show top pilots by flights logged'),
+
+  new SlashCommandBuilder()
+    .setName('hostflight')
+    .setDescription('Host a new upcoming flight')
+    .addStringOption(option =>
+      option.setName('flight_number')
+        .setDescription('Flight Number (e.g. SV123)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('from')
+        .setDescription('Departure Airport (e.g. RUH)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('to')
+        .setDescription('Arrival Airport (e.g. JED)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('aircraft')
+        .setDescription('Aircraft Type (e.g. A321 Aeroware)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('date')
+        .setDescription('Date of flight (YYYY-MM-DD)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('time')
+        .setDescription('Time of flight (HH:MM 24h GMT)')
+        .setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 // ===== REGISTER COMMANDS =====
@@ -152,7 +182,6 @@ client.on('interactionCreate', async interaction => {
 
     // -------- LEADERBOARD --------
     if (interaction.commandName === 'leaderboard') {
-      // Convert data object to array and sort by count
       const leaderboard = Object.entries(data)
         .map(([id, info]) => ({ id, count: info.count }))
         .sort((a, b) => b.count - a.count)
@@ -162,10 +191,9 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'No flights logged yet.', ephemeral: true });
       }
 
-      // Build embed fields
       const fields = leaderboard.map((pilot, index) => {
         const user = interaction.guild.members.cache.get(pilot.id);
-        const mention = user ? `${user}` : `Unknown User`;
+        const mention = user ? `<@${pilot.id}>` : 'Unknown User';
         return { name: `#${index + 1} ${mention}`, value: `Flights: ${pilot.count}`, inline: false };
       });
 
@@ -176,6 +204,45 @@ client.on('interactionCreate', async interaction => {
         .setFooter({ text: `Updated: ${new Date().toLocaleString()}` });
 
       await interaction.reply({ embeds: [embed], ephemeral: false });
+    }
+
+    // -------- HOSTFLIGHT --------
+    if (interaction.commandName === 'hostflight') {
+      const requiredRole = 'Flight Operations License';
+      const hasPermission = memberRoles.some(role => role.name === requiredRole);
+
+      if (!hasPermission) {
+        return interaction.reply({ content: 'You need the Flight Operations License role to host flights.', ephemeral: true });
+      }
+
+      const flightNumber = interaction.options.getString('flight_number');
+      const from = interaction.options.getString('from');
+      const to = interaction.options.getString('to');
+      const aircraft = interaction.options.getString('aircraft');
+      const dateInput = interaction.options.getString('date'); // YYYY-MM-DD
+      const timeInput = interaction.options.getString('time'); // HH:MM GMT
+
+      // Convert to Discord timestamp for auto-formatting
+      const dateTime = new Date(`${dateInput}T${timeInput}:00Z`);
+      const timestamp = Math.floor(dateTime.getTime() / 1000);
+
+      const embed = new EmbedBuilder()
+        .setTitle('Upcoming Flights')
+        .setColor(0x006C35)
+        .addFields(
+          { name: 'Flight Number', value: flightNumber, inline: true },
+          { name: 'Route', value: `${from} → ${to}`, inline: true },
+          { name: 'Aircraft Type', value: aircraft, inline: true },
+          { name: 'Join Time', value: `<t:${timestamp}:f>`, inline: true },
+          { name: 'Hosted By', value: `<@${interaction.user.id}>`, inline: true }
+        )
+        .setFooter({ text: `Flight hosted: ${new Date().toLocaleString()}` });
+
+      const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'upcoming-flights');
+      if (!hostChannel) return interaction.reply({ content: 'Upcoming flights channel not found.', ephemeral: true });
+
+      hostChannel.send({ embeds: [embed] });
+      await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
     }
 
   } catch (err) {
