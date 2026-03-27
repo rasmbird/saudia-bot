@@ -45,7 +45,7 @@ client.on('messageCreate', message => {
     const embed = new EmbedBuilder()
       .setTitle('Flight Log')
       .addFields(
-        { name: 'Pilot', value: `${message.author.tag}`, inline: false },
+        { name: 'Pilot', value: `${message.author}`, inline: false },
         { name: 'Flight Number', value: flightNumber, inline: true },
         { name: 'Route', value: `${from} → ${to}`, inline: true }
       )
