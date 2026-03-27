@@ -46,10 +46,30 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('hostflight')
-    .setDescription('Host one or multiple upcoming flights')
+    .setDescription('Host an upcoming flight')
     .addStringOption(option =>
-      option.setName('flights')
-        .setDescription('Enter flights separated by | format: FlightNumber,From,To,Aircraft,Date(YYYY-MM-DD),Time(HH:MM KSA)')
+      option.setName('flight_number')
+        .setDescription('Flight Number (e.g. SV123)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('from')
+        .setDescription('Departure Airport (e.g. RUH)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('to')
+        .setDescription('Arrival Airport (e.g. JED)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('aircraft')
+        .setDescription('Aircraft Type (e.g. A321)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('date')
+        .setDescription('Flight Date (YYYY-MM-DD)')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('time')
+        .setDescription('Join Time (HH:MM in KSA timezone)')
         .setRequired(true))
 ].map(cmd => cmd.toJSON());
 
@@ -193,33 +213,30 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'You need the Flight Operations License role to host flights.', ephemeral: true });
       }
 
-      const flightsInput = interaction.options.getString('flights');
-      const flightsArray = flightsInput.split('|').map(f => f.trim());
+      const flightNumber = interaction.options.getString('flight_number');
+      const from = interaction.options.getString('from');
+      const to = interaction.options.getString('to');
+      const aircraft = interaction.options.getString('aircraft');
+      const dateInput = interaction.options.getString('date');
+      const timeInput = interaction.options.getString('time');
+
+      // Convert KSA time (UTC+3) → UTC
+      const [hour, minute] = timeInput.split(':').map(Number);
+      const dateTime = new Date(`${dateInput}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
+      const timestamp = Math.floor(dateTime.getTime() / 1000);
 
       const embed = new EmbedBuilder()
         .setTitle('Upcoming Flights')
-        .setColor(0x006C35);
-
-      for (const flight of flightsArray) {
-        // FlightNumber,From,To,Aircraft,Date,Time
-        const [flightNumber, from, to, aircraft, dateInput, timeInput] = flight.split(',').map(s => s.trim());
-        if (!flightNumber || !from || !to || !aircraft || !dateInput || !timeInput) continue;
-
-        // Convert KSA time (UTC+3) → UTC
-        const [hour, minute] = timeInput.split(':').map(Number);
-        const dateTime = new Date(`${dateInput}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
-        const timestamp = Math.floor(dateTime.getTime() / 1000);
-
-        embed.addFields(
+        .setColor(0x006C35)
+        .addFields(
           { name: `Flight Number: ${flightNumber}`, value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`, inline: false }
         );
-      }
 
       const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'departures');
       if (!hostChannel) return interaction.reply({ content: 'Departures channel not found.', ephemeral: true });
 
       hostChannel.send({ embeds: [embed] });
-      await interaction.reply({ content: 'Flights hosted successfully!', ephemeral: true });
+      await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
     }
 
   } catch (err) {
