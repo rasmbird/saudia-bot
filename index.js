@@ -57,7 +57,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'logflight') {
 
     // ===== ROLE CHECK =====
-    const allowedRoles = ['Captain', 'First Officer'];
+    const allowedRoles = ['CP | Captain', 'FO | First Officer'];
 
     const memberRoles = interaction.member.roles.cache;
     const hasPermission = memberRoles.some(role =>
