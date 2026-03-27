@@ -20,15 +20,15 @@ const commands = [
     .setName('logflight')
     .setDescription('Log a flight')
     .addStringOption(option =>
-      option.setName('flight')
+      option.setName('Flight Number')
         .setDescription('Flight Number (e.g. SV123)')
         .setRequired(true))
     .addStringOption(option =>
-      option.setName('from')
+      option.setName('From')
         .setDescription('Departure Airport (e.g. RUH)')
         .setRequired(true))
     .addStringOption(option =>
-      option.setName('to')
+      option.setName('To')
         .setDescription('Arrival Airport (e.g. JED)')
         .setRequired(true)),
   new SlashCommandBuilder()
@@ -78,7 +78,7 @@ client.on('interactionCreate', async interaction => {
 
   // -------- LOGFLIGHT --------
   if (interaction.commandName === 'logflight') {
-    const allowedRoles = ['CP', 'FO']; // Captain & First Officer
+    const allowedRoles = ['CP | Captain', 'FO | First Officer']; // Captain & First Officer
     const memberRoles = interaction.member.roles.cache;
     const hasPermission = memberRoles.some(role => allowedRoles.includes(role.name));
 
