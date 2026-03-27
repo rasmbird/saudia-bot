@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
 const client = new Client({
   intents: [
@@ -41,17 +41,17 @@ client.on('messageCreate', message => {
       return message.reply('Flight log channel not found.');
     }
 
-    const logMessage = `
-Flight Log
--------------------------
-Pilot: ${message.author.tag}
-Flight Number: ${flightNumber}
-Route: ${from} -> ${to}
-Time: ${new Date().toLocaleString()}
--------------------------
-`;
+    // Create embed
+    const embed = new EmbedBuilder()
+      .setTitle('Flight Log')
+      .addFields(
+        { name: 'Pilot', value: `${message.author.tag}`, inline: false },
+        { name: 'Flight Number', value: flightNumber, inline: true },
+        { name: 'Route', value: `${from} → ${to}`, inline: true }
+      )
+      .setFooter({ text: `Time: ${new Date().toLocaleString()}` });
 
-    logChannel.send(logMessage);
+    logChannel.send({ embeds: [embed] });
 
     message.reply('Flight logged successfully.');
   }
