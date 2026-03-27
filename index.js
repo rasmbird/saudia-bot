@@ -7,7 +7,7 @@ const client = new Client({
 
 const CLIENT_ID = '1138806788708368544';
 const TOKEN = process.env.TOKEN;
-const DATA_FILE = './flights.json'; // JSON storage
+const DATA_FILE = './flights.json';
 
 // ===== INITIALIZE DATA FILE =====
 if (!fs.existsSync(DATA_FILE)) {
@@ -135,14 +135,12 @@ client.on('interactionCreate', async interaction => {
       const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
       if (!logChannel) return interaction.reply({ content: 'Flight log channel not found.', ephemeral: true });
 
-      // ---- FLIGHT COUNT ----
       const userId = interaction.user.id;
       if (!data[userId]) data[userId] = { count: 0, lastFlight: null };
       data[userId].count += 1;
       data[userId].lastFlight = new Date().toISOString();
       saveData(data);
 
-      // ---- ROLE-BASED EMBED FIELD ----
       let roleTitle = '';
       if (memberRoles.some(role => role.name === 'CP | Captain')) roleTitle = 'Captain';
       else if (memberRoles.some(role => role.name === 'FO | First Officer')) roleTitle = 'First Officer';
@@ -185,7 +183,7 @@ client.on('interactionCreate', async interaction => {
       const leaderboard = Object.entries(data)
         .map(([id, info]) => ({ id, count: info.count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10); // top 10
+        .slice(0, 10);
 
       if (leaderboard.length === 0) {
         return interaction.reply({ content: 'No flights logged yet.', ephemeral: true });
@@ -219,10 +217,9 @@ client.on('interactionCreate', async interaction => {
       const from = interaction.options.getString('from');
       const to = interaction.options.getString('to');
       const aircraft = interaction.options.getString('aircraft');
-      const dateInput = interaction.options.getString('date'); // YYYY-MM-DD
-      const timeInput = interaction.options.getString('time'); // HH:MM GMT
+      const dateInput = interaction.options.getString('date');
+      const timeInput = interaction.options.getString('time');
 
-      // Convert to Discord timestamp for auto-formatting
       const dateTime = new Date(`${dateInput}T${timeInput}:00Z`);
       const timestamp = Math.floor(dateTime.getTime() / 1000);
 
@@ -238,8 +235,8 @@ client.on('interactionCreate', async interaction => {
         )
         .setFooter({ text: `Flight hosted: ${new Date().toLocaleString()}` });
 
-      const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'upcoming-flights');
-      if (!hostChannel) return interaction.reply({ content: 'Upcoming flights channel not found.', ephemeral: true });
+      const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'departures');
+      if (!hostChannel) return interaction.reply({ content: 'Departures channel not found.', ephemeral: true });
 
       hostChannel.send({ embeds: [embed] });
       await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
