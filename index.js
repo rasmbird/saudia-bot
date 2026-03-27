@@ -4,7 +4,11 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== REGISTER SLASH COMMAND =====
+// ===== CONFIG =====
+const CLIENT_ID = '1138806788708368544';
+const TOKEN = process.env.TOKEN;
+
+// ===== SLASH COMMAND SETUP =====
 const commands = [
   new SlashCommandBuilder()
     .setName('logflight')
@@ -23,15 +27,15 @@ const commands = [
         .setRequired(true))
 ].map(cmd => cmd.toJSON());
 
-// ===== REGISTER TO DISCORD =====
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+// ===== REGISTER COMMAND =====
+const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
   try {
     console.log('Registering slash commands...');
 
     await rest.put(
-      Routes.applicationCommands('1138806788708368544'), // replace this
+      Routes.applicationCommands(CLIENT_ID),
       { body: commands }
     );
 
@@ -46,24 +50,45 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// ===== HANDLE SLASH COMMAND =====
+// ===== COMMAND HANDLER =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'logflight') {
 
+    // ===== ROLE CHECK =====
+    const allowedRoles = ['Captain', 'First Officer'];
+
+    const memberRoles = interaction.member.roles.cache;
+    const hasPermission = memberRoles.some(role =>
+      allowedRoles.includes(role.name)
+    );
+
+    if (!hasPermission) {
+      return interaction.reply({
+        content: 'You are not authorized to log flights.',
+        ephemeral: true
+      });
+    }
+
+    // ===== INPUTS =====
     const flightNumber = interaction.options.getString('flight');
     const from = interaction.options.getString('from');
     const to = interaction.options.getString('to');
 
+    // ===== FIND CHANNEL =====
     const logChannel = interaction.guild.channels.cache.find(
       channel => channel.name === 'flight-logs'
     );
 
     if (!logChannel) {
-      return interaction.reply({ content: 'Flight log channel not found.', ephemeral: true });
+      return interaction.reply({
+        content: 'Flight log channel not found.',
+        ephemeral: true
+      });
     }
 
+    // ===== EMBED =====
     const embed = new EmbedBuilder()
       .setTitle('Flight Log')
       .setColor(0x006C35)
@@ -76,8 +101,12 @@ client.on('interactionCreate', async interaction => {
 
     logChannel.send({ embeds: [embed] });
 
-    await interaction.reply({ content: 'Flight logged successfully.', ephemeral: true });
+    await interaction.reply({
+      content: 'Flight logged successfully.',
+      ephemeral: true
+    });
   }
 });
 
-client.login(process.env.TOKEN);
+// ===== LOGIN =====
+client.login(TOKEN);
