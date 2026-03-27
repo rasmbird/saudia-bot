@@ -37,7 +37,10 @@ const commands = [
     .addUserOption(option =>
       option.setName('pilot')
         .setDescription('Select a pilot')
-        .setRequired(false))
+        .setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('leaderboard')
+    .setDescription('Show top pilots by flights logged')
 ].map(cmd => cmd.toJSON());
 
 // ===== REGISTER COMMANDS =====
@@ -145,6 +148,34 @@ client.on('interactionCreate', async interaction => {
         );
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    // -------- LEADERBOARD --------
+    if (interaction.commandName === 'leaderboard') {
+      // Convert data object to array and sort by count
+      const leaderboard = Object.entries(data)
+        .map(([id, info]) => ({ id, count: info.count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10); // top 10
+
+      if (leaderboard.length === 0) {
+        return interaction.reply({ content: 'No flights logged yet.', ephemeral: true });
+      }
+
+      // Build embed fields
+      const fields = leaderboard.map((pilot, index) => {
+        const user = interaction.guild.members.cache.get(pilot.id);
+        const mention = user ? `${user}` : `Unknown User`;
+        return { name: `#${index + 1} ${mention}`, value: `Flights: ${pilot.count}`, inline: false };
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle('Top Pilots Leaderboard')
+        .setColor(0x006C35)
+        .addFields(fields)
+        .setFooter({ text: `Updated: ${new Date().toLocaleString()}` });
+
+      await interaction.reply({ embeds: [embed], ephemeral: false });
     }
 
   } catch (err) {
