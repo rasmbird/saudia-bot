@@ -121,7 +121,7 @@ client.on('interactionCreate', async interaction => {
         .setTitle('Flight Log')
         .setColor(0x006C35)
         .addFields(
-          { name: roleTitle, value: `${interaction.user}`, inline: false },
+          { name: roleTitle, value: `<@${interaction.user.id}>`, inline: false },
           { name: 'Flight Number', value: flightNumber, inline: true },
           { name: 'Route', value: `${from} → ${to}`, inline: true },
           { name: 'Total Flights', value: `${data[userId].count}`, inline: true }
