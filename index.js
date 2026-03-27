@@ -63,75 +63,95 @@ client.once('ready', () => {
 
 // ===== HELPER: LOAD / SAVE =====
 function loadData() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+  try {
+    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+  } catch {
+    return {};
+  }
 }
 
 function saveData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to save flights:', err);
+  }
 }
 
 // ===== HANDLE INTERACTIONS =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const data = loadData();
-
-  // -------- LOGFLIGHT --------
-  if (interaction.commandName === 'logflight') {
-    const allowedRoles = ['CP | Captain', 'FO | First Officer']; // Captain & First Officer
+  try {
+    const data = loadData();
     const memberRoles = interaction.member.roles.cache;
-    const hasPermission = memberRoles.some(role => allowedRoles.includes(role.name));
 
-    if (!hasPermission) {
-      return interaction.reply({ content: 'You are not authorized to log flights.', ephemeral: true });
+    // -------- LOGFLIGHT --------
+    if (interaction.commandName === 'logflight') {
+      const allowedRoles = ['CP | Captain', 'FO | First Officer'];
+      const hasPermission = memberRoles.some(role => allowedRoles.includes(role.name));
+
+      if (!hasPermission) {
+        return interaction.reply({ content: 'You are not authorized to log flights.', ephemeral: true });
+      }
+
+      const flightNumber = interaction.options.getString('flight');
+      const from = interaction.options.getString('from');
+      const to = interaction.options.getString('to');
+
+      const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
+      if (!logChannel) return interaction.reply({ content: 'Flight log channel not found.', ephemeral: true });
+
+      // ---- FLIGHT COUNT ----
+      const userId = interaction.user.id;
+      if (!data[userId]) data[userId] = { count: 0, lastFlight: null };
+      data[userId].count += 1;
+      data[userId].lastFlight = new Date().toISOString();
+      saveData(data);
+
+      // ---- ROLE-BASED EMBED FIELD ----
+      let roleTitle = '';
+      if (memberRoles.some(role => role.name === 'CP | Captain')) roleTitle = 'Captain';
+      else if (memberRoles.some(role => role.name === 'FO | First Officer')) roleTitle = 'First Officer';
+
+      const embed = new EmbedBuilder()
+        .setTitle('Flight Log')
+        .setColor(0x006C35)
+        .addFields(
+          { name: roleTitle, value: `${interaction.user}`, inline: false },
+          { name: 'Flight Number', value: flightNumber, inline: true },
+          { name: 'Route', value: `${from} → ${to}`, inline: true },
+          { name: 'Total Flights', value: `${data[userId].count}`, inline: true }
+        )
+        .setFooter({ text: `Time: ${new Date().toLocaleString()}` });
+
+      logChannel.send({ embeds: [embed] });
+      await interaction.reply({ content: 'Flight logged successfully.', ephemeral: true });
     }
 
-    const flightNumber = interaction.options.getString('flight');
-    const from = interaction.options.getString('from');
-    const to = interaction.options.getString('to');
+    // -------- STATS --------
+    if (interaction.commandName === 'stats') {
+      const targetUser = interaction.options.getUser('pilot') || interaction.user;
+      const userId = targetUser.id;
 
-    const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
-    if (!logChannel) return interaction.reply({ content: 'Flight log channel not found.', ephemeral: true });
+      const userData = data[userId] || { count: 0, lastFlight: 'Never' };
 
-    // ---- FLIGHT COUNT ----
-    const userId = interaction.user.id;
-    if (!data[userId]) data[userId] = { count: 0, lastFlight: null };
-    data[userId].count += 1;
-    data[userId].lastFlight = new Date().toISOString();
-    saveData(data);
+      const embed = new EmbedBuilder()
+        .setTitle(`Flight Stats for ${targetUser.username}`)
+        .setColor(0x006C35)
+        .addFields(
+          { name: 'Total Flights', value: `${userData.count}`, inline: true },
+          { name: 'Last Flight', value: userData.lastFlight === 'Never' ? 'Never' : new Date(userData.lastFlight).toLocaleString(), inline: true }
+        );
 
-    // ---- EMBED ----
-    const embed = new EmbedBuilder()
-      .setTitle('Flight Log')
-      .setColor(0x006C35)
-      .addFields(
-        { name: 'Pilot', value: `${interaction.user}`, inline: false },
-        { name: 'Flight Number', value: flightNumber, inline: true },
-        { name: 'Route', value: `${from} → ${to}`, inline: true },
-        { name: 'Total Flights', value: `${data[userId].count}`, inline: true }
-      )
-      .setFooter({ text: `Time: ${new Date().toLocaleString()}` });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+    }
 
-    logChannel.send({ embeds: [embed] });
-    await interaction.reply({ content: 'Flight logged successfully.', ephemeral: true });
-  }
-
-  // -------- STATS --------
-  if (interaction.commandName === 'stats') {
-    const targetUser = interaction.options.getUser('pilot') || interaction.user;
-    const userId = targetUser.id;
-
-    const userData = data[userId] || { count: 0, lastFlight: 'Never' };
-
-    const embed = new EmbedBuilder()
-      .setTitle(`Flight Stats for ${targetUser.username}`)
-      .setColor(0x006C35)
-      .addFields(
-        { name: 'Total Flights', value: `${userData.count}`, inline: true },
-        { name: 'Last Flight', value: userData.lastFlight === 'Never' ? 'Never' : new Date(userData.lastFlight).toLocaleString(), inline: true }
-      );
-
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } catch (err) {
+    console.error('Error handling interaction:', err);
+    if (!interaction.replied && !interaction.deferred) {
+      interaction.reply({ content: 'Something went wrong.', ephemeral: true });
+    }
   }
 });
 
