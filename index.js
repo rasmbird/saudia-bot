@@ -20,15 +20,15 @@ const commands = [
     .setName('logflight')
     .setDescription('Log a flight')
     .addStringOption(option =>
-      option.setName('Flight Number')
+      option.setName('flight')
         .setDescription('Flight Number (e.g. SV123)')
         .setRequired(true))
     .addStringOption(option =>
-      option.setName('From')
+      option.setName('from')
         .setDescription('Departure Airport (e.g. RUH)')
         .setRequired(true))
     .addStringOption(option =>
-      option.setName('To')
+      option.setName('to')
         .setDescription('Arrival Airport (e.g. JED)')
         .setRequired(true)),
   new SlashCommandBuilder()
