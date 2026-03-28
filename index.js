@@ -9,7 +9,6 @@ const CLIENT_ID = '1138806788708368544';
 const TOKEN = process.env.TOKEN;
 const DATA_FILE = './flights.json';
 
-// ===== IMAGE STORED =====
 const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c91a8f&is=69c7c90f&hm=93686de71b51add6562458d6fcba6c968dee3cfcfc1395e20242cbf22d5d4e15&=&format=webp&quality=lossless';
 
 // ===== INIT FILE =====
@@ -23,73 +22,37 @@ const commands = [
     .setName('logflight')
     .setDescription('Log a flight')
     .addStringOption(option =>
-      option.setName('flight')
-        .setDescription('Flight Number (e.g. SV123)')
-        .setRequired(true))
+      option.setName('flight').setDescription('Flight Number').setRequired(true))
     .addStringOption(option =>
-      option.setName('from')
-        .setDescription('Departure Airport (e.g. RUH)')
-        .setRequired(true))
+      option.setName('from').setDescription('Departure').setRequired(true))
     .addStringOption(option =>
-      option.setName('to')
-        .setDescription('Arrival Airport (e.g. JED)')
-        .setRequired(true)),
+      option.setName('to').setDescription('Arrival').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('Check total flights logged for a pilot')
+    .setDescription('Check stats')
     .addUserOption(option =>
-      option.setName('pilot')
-        .setDescription('Select a pilot')
-        .setRequired(false)),
+      option.setName('pilot').setDescription('Pilot')),
 
   new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Show top pilots by flights logged'),
+    .setDescription('Top pilots'),
 
   new SlashCommandBuilder()
     .setName('hostflight')
-    .setDescription('Host an upcoming flight')
-    .addStringOption(option =>
-      option.setName('flight_number')
-        .setDescription('Flight Number (e.g. SV123)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('from')
-        .setDescription('Departure Airport (e.g. RUH)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('to')
-        .setDescription('Arrival Airport (e.g. JED)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('aircraft')
-        .setDescription('Aircraft Type (e.g. A321)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('date')
-        .setDescription('Flight Date (YYYY-MM-DD)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('time')
-        .setDescription('Join Time (HH:MM in KSA timezone)')
-        .setRequired(true))
+    .setDescription('Host flight')
+    .addStringOption(o => o.setName('flight_number').setRequired(true))
+    .addStringOption(o => o.setName('from').setRequired(true))
+    .addStringOption(o => o.setName('to').setRequired(true))
+    .addStringOption(o => o.setName('aircraft').setRequired(true))
+    .addStringOption(o => o.setName('date').setRequired(true))
+    .addStringOption(o => o.setName('time').setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 // ===== REGISTER =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
-  try {
-    console.log('Registering slash commands...');
-    await rest.put(
-      Routes.applicationCommands(CLIENT_ID),
-      { body: commands }
-    );
-    console.log('Slash commands registered.');
-  } catch (error) {
-    console.error(error);
-  }
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
 })();
 
 // ===== READY =====
@@ -99,172 +62,150 @@ client.once('ready', () => {
 
 // ===== DATA =====
 function loadData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')); }
+  catch { return {}; }
 }
 
 function saveData(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to save flights:', err);
-  }
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// ===== INTERACTIONS =====
+// ===== MAIN =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   try {
     const data = loadData();
-    const memberRoles = interaction.member.roles.cache;
+    const roles = interaction.member.roles.cache;
 
     // ===== LOGFLIGHT =====
     if (interaction.commandName === 'logflight') {
-      const allowedRoles = ['CP | Captain', 'FO | First Officer'];
-      const hasPermission = memberRoles.some(role => allowedRoles.includes(role.name));
-
-      if (!hasPermission) {
-        return interaction.reply({ content: 'You are not authorized to log flights.', ephemeral: true });
+      const allowed = ['CP | Captain', 'FO | First Officer'];
+      if (!roles.some(r => allowed.includes(r.name))) {
+        return interaction.reply({ content: 'Not authorized.', ephemeral: true });
       }
 
-      const flightNumber = interaction.options.getString('flight');
+      const flight = interaction.options.getString('flight');
       const from = interaction.options.getString('from');
       const to = interaction.options.getString('to');
 
-      const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
-      if (!logChannel) return interaction.reply({ content: 'Flight log channel not found.', ephemeral: true });
+      const channel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
+      if (!channel) return interaction.reply({ content: 'Channel missing.', ephemeral: true });
 
-      const userId = interaction.user.id;
-      if (!data[userId]) data[userId] = { count: 0, lastFlight: null };
+      const id = interaction.user.id;
+      if (!data[id]) data[id] = { count: 0, lastFlight: null };
 
-      data[userId].count += 1;
-      data[userId].lastFlight = new Date().toISOString();
+      data[id].count++;
+      data[id].lastFlight = new Date().toISOString();
       saveData(data);
 
-      let roleTitle = '';
-      if (memberRoles.some(role => role.name === 'CP | Captain')) roleTitle = 'Captain';
-      else if (memberRoles.some(role => role.name === 'FO | First Officer')) roleTitle = 'First Officer';
+      const roleName = roles.some(r => r.name === 'CP | Captain') ? 'Captain' : 'First Officer';
 
       const embed = new EmbedBuilder()
         .setTitle('Flight Log')
         .setColor(0x006C35)
         .addFields(
-          { name: roleTitle, value: `<@${interaction.user.id}>`, inline: false },
-          { name: 'Flight Number', value: flightNumber, inline: true },
+          { name: roleName, value: `<@${id}>` },
+          { name: 'Flight', value: flight, inline: true },
           { name: 'Route', value: `${from} → ${to}`, inline: true },
-          { name: 'Total Flights', value: `${data[userId].count}`, inline: true }
+          { name: 'Total', value: `${data[id].count}`, inline: true }
         )
         .setFooter({ text: `Time: ${new Date().toLocaleString()}` });
 
-      logChannel.send({ embeds: [embed] });
-      await interaction.reply({ content: 'Flight logged successfully.', ephemeral: true });
-    }
-
-    // ===== STATS =====
-    if (interaction.commandName === 'stats') {
-      const targetUser = interaction.options.getUser('pilot') || interaction.user;
-      const userId = targetUser.id;
-
-      const userData = data[userId] || { count: 0, lastFlight: 'Never' };
-
-      const embed = new EmbedBuilder()
-        .setTitle(`Flight Stats for ${targetUser.username}`)
-        .setColor(0x006C35)
-        .addFields(
-          { name: 'Total Flights', value: `${userData.count}`, inline: true },
-          {
-            name: 'Last Flight',
-            value: userData.lastFlight === 'Never'
-              ? 'Never'
-              : new Date(userData.lastFlight).toLocaleString(),
-            inline: true
-          }
-        );
-
-      await interaction.reply({ embeds: [embed], ephemeral: true });
-    }
-
-    // ===== LEADERBOARD =====
-    if (interaction.commandName === 'leaderboard') {
-      const leaderboard = Object.entries(data)
-        .map(([id, info]) => ({ id, count: info.count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      if (leaderboard.length === 0) {
-        return interaction.reply({ content: 'No flights logged yet.', ephemeral: true });
-      }
-
-      const fields = leaderboard.map((pilot, index) => ({
-        name: `#${index + 1} <@${pilot.id}>`,
-        value: `Flights: ${pilot.count}`,
-        inline: false
-      }));
-
-      const embed = new EmbedBuilder()
-        .setTitle('Top Pilots Leaderboard')
-        .setColor(0x006C35)
-        .addFields(fields);
-
-      await interaction.reply({ embeds: [embed] });
+      channel.send({ embeds: [embed] });
+      return interaction.reply({ content: 'Logged.', ephemeral: true });
     }
 
     // ===== HOSTFLIGHT =====
     if (interaction.commandName === 'hostflight') {
-      const requiredRole = 'Flight Operations License';
-      const hasPermission = memberRoles.some(role => role.name === requiredRole);
-
-      if (!hasPermission) {
-        return interaction.reply({ content: 'You need the Flight Operations License role to host flights.', ephemeral: true });
+      if (!roles.some(r => r.name === 'Flight Operations License')) {
+        return interaction.reply({ content: 'No permission.', ephemeral: true });
       }
 
-      const flightNumber = interaction.options.getString('flight_number');
+      const flight = interaction.options.getString('flight_number');
       const from = interaction.options.getString('from');
       const to = interaction.options.getString('to');
       const aircraft = interaction.options.getString('aircraft');
-      const dateInput = interaction.options.getString('date');
-      const timeInput = interaction.options.getString('time');
+      const date = interaction.options.getString('date');
+      const time = interaction.options.getString('time');
 
-      const [hour, minute] = timeInput.split(':').map(Number);
-      const dateTime = new Date(`${dateInput}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
-      const timestamp = Math.floor(dateTime.getTime() / 1000);
+      const [h, m] = time.split(':').map(Number);
+      const utc = new Date(`${date}T${(h - 3).toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:00Z`);
+      const ts = Math.floor(utc.getTime() / 1000);
 
       const embed = new EmbedBuilder()
-        .setTitle('Upcoming Flights') // ✅ sticker removed only
+        .setTitle('Upcoming Flights')
         .setColor(0x006C35)
         .setImage(UPCOMING_FLIGHT_IMAGE)
         .addFields(
           {
-            name: `Flight Number: ${flightNumber}`,
-            value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`,
-            inline: false
+            name: `Flight Number: ${flight}`,
+            value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${ts}:f>\nHosted By: <@${interaction.user.id}>`
           },
-          {
-            name: '\u200B',
-            value: '@here',
-            inline: false
-          }
+          { name: '\u200B', value: '@here' }
         );
 
-      const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'departures');
-      if (!hostChannel) return interaction.reply({ content: 'Departures channel not found.', ephemeral: true });
+      const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
+      if (!channel) return interaction.reply({ content: 'Departures missing.', ephemeral: true });
 
-      hostChannel.send({
+      channel.send({
         embeds: [embed],
         allowedMentions: { parse: [] }
       });
 
-      await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
+      return interaction.reply({ content: 'Flight hosted.', ephemeral: true });
+    }
+
+    // ===== STATS =====
+    if (interaction.commandName === 'stats') {
+      const user = interaction.options.getUser('pilot') || interaction.user;
+      const d = data[user.id] || { count: 0, lastFlight: 'Never' };
+
+      const embed = new EmbedBuilder()
+        .setTitle(`Stats: ${user.username}`)
+        .setColor(0x006C35)
+        .addFields(
+          { name: 'Flights', value: `${d.count}`, inline: true },
+          {
+            name: 'Last Flight',
+            value: d.lastFlight === 'Never'
+              ? 'Never'
+              : new Date(d.lastFlight).toLocaleString(),
+            inline: true
+          }
+        );
+
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    // ===== LEADERBOARD (UPDATED) =====
+    if (interaction.commandName === 'leaderboard') {
+      const sorted = Object.entries(data)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 10);
+
+      const fields = sorted.map((u, i) => {
+        const member = interaction.guild.members.cache.get(u[0]);
+        const name = member ? member.displayName : 'Unknown User';
+
+        return {
+          name: `#${i + 1} ${name}`,
+          value: `Flights: ${u[1].count}`
+        };
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle('Leaderboard')
+        .setColor(0x006C35)
+        .addFields(fields);
+
+      return interaction.reply({ embeds: [embed] });
     }
 
   } catch (err) {
-    console.error('Error:', err);
+    console.error(err);
     if (!interaction.replied) {
-      interaction.reply({ content: 'Something went wrong.', ephemeral: true });
+      interaction.reply({ content: 'Error.', ephemeral: true });
     }
   }
 });
