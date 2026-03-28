@@ -11,7 +11,7 @@ const DATA_FILE = './flights.json';
 
 const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c91a8f&is=69c7c90f&hm=93686de71b51add6562458d6fcba6c968dee3cfcfc1395e20242cbf22d5d4e15&=&format=webp&quality=lossless';
 
-// ===== INIT FILE =====
+// ===== INIT =====
 if (!fs.existsSync(DATA_FILE)) {
   fs.writeFileSync(DATA_FILE, JSON.stringify({}), 'utf-8');
 }
@@ -21,18 +21,14 @@ const commands = [
   new SlashCommandBuilder()
     .setName('logflight')
     .setDescription('Log a flight')
-    .addStringOption(option =>
-      option.setName('flight').setDescription('Flight Number').setRequired(true))
-    .addStringOption(option =>
-      option.setName('from').setDescription('Departure').setRequired(true))
-    .addStringOption(option =>
-      option.setName('to').setDescription('Arrival').setRequired(true)),
+    .addStringOption(o => o.setName('flight').setRequired(true))
+    .addStringOption(o => o.setName('from').setRequired(true))
+    .addStringOption(o => o.setName('to').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('stats')
     .setDescription('Check stats')
-    .addUserOption(option =>
-      option.setName('pilot').setDescription('Pilot')),
+    .addUserOption(o => o.setName('pilot')),
 
   new SlashCommandBuilder()
     .setName('leaderboard')
@@ -47,7 +43,7 @@ const commands = [
     .addStringOption(o => o.setName('aircraft').setRequired(true))
     .addStringOption(o => o.setName('date').setRequired(true))
     .addStringOption(o => o.setName('time').setRequired(true))
-].map(cmd => cmd.toJSON());
+].map(c => c.toJSON());
 
 // ===== REGISTER =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -62,10 +58,9 @@ client.once('ready', () => {
 
 // ===== DATA =====
 function loadData() {
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')); }
+  try { return JSON.parse(fs.readFileSync(DATA_FILE)); }
   catch { return {}; }
 }
-
 function saveData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
@@ -109,8 +104,7 @@ client.on('interactionCreate', async interaction => {
           { name: 'Flight', value: flight, inline: true },
           { name: 'Route', value: `${from} → ${to}`, inline: true },
           { name: 'Total', value: `${data[id].count}`, inline: true }
-        )
-        .setFooter({ text: `Time: ${new Date().toLocaleString()}` });
+        );
 
       channel.send({ embeds: [embed] });
       return interaction.reply({ content: 'Logged.', ephemeral: true });
@@ -130,6 +124,10 @@ client.on('interactionCreate', async interaction => {
       const time = interaction.options.getString('time');
 
       const [h, m] = time.split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) {
+        return interaction.reply({ content: 'Use 24h format like 18:30', ephemeral: true });
+      }
+
       const utc = new Date(`${date}T${(h - 3).toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:00Z`);
       const ts = Math.floor(utc.getTime() / 1000);
 
@@ -178,21 +176,24 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // ===== LEADERBOARD (UPDATED) =====
+    // ===== LEADERBOARD (FIXED) =====
     if (interaction.commandName === 'leaderboard') {
       const sorted = Object.entries(data)
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 10);
 
-      const fields = sorted.map((u, i) => {
-        const member = interaction.guild.members.cache.get(u[0]);
-        const name = member ? member.displayName : 'Unknown User';
+      const fields = await Promise.all(sorted.map(async (u, i) => {
+        let name = 'Unknown User';
+        try {
+          const member = await interaction.guild.members.fetch(u[0]);
+          name = member.displayName;
+        } catch {}
 
         return {
           name: `#${i + 1} ${name}`,
           value: `Flights: ${u[1].count}`
         };
-      });
+      }));
 
       const embed = new EmbedBuilder()
         .setTitle('Leaderboard')
@@ -203,9 +204,9 @@ client.on('interactionCreate', async interaction => {
     }
 
   } catch (err) {
-    console.error(err);
+    console.error('ERROR:', err);
     if (!interaction.replied) {
-      interaction.reply({ content: 'Error.', ephemeral: true });
+      interaction.reply({ content: 'Something broke.', ephemeral: true });
     }
   }
 });
