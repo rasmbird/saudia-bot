@@ -220,7 +220,6 @@ client.on('interactionCreate', async interaction => {
       const dateInput = interaction.options.getString('date');
       const timeInput = interaction.options.getString('time');
 
-      // Convert KSA time (UTC+3) → UTC
       const [hour, minute] = timeInput.split(':').map(Number);
       const dateTime = new Date(`${dateInput}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
       const timestamp = Math.floor(dateTime.getTime() / 1000);
@@ -228,6 +227,7 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle('Upcoming Flights')
         .setColor(0x006C35)
+        .setImage('https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c871cf&is=69c7204f&hm=d581579540ce52f586b3ce430dfb74cc07afbb796ac645979b923d18b763a9f4&=&format=webp&quality=lossless') // Replace with your image
         .addFields(
           { name: `Flight Number: ${flightNumber}`, value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`, inline: false }
         );
@@ -235,7 +235,12 @@ client.on('interactionCreate', async interaction => {
       const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'departures');
       if (!hostChannel) return interaction.reply({ content: 'Departures channel not found.', ephemeral: true });
 
-      hostChannel.send({ embeds: [embed] });
+      hostChannel.send({
+        embeds: [embed],
+        content: '@here',
+        allowedMentions: { parse: [] } // Hidden @here
+      });
+
       await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
     }
 
