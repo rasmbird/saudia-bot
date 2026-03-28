@@ -225,11 +225,12 @@ client.on('interactionCreate', async interaction => {
       const timestamp = Math.floor(dateTime.getTime() / 1000);
 
       const embed = new EmbedBuilder()
-        .setTitle('Upcoming Flights')
+        .setTitle('<:SaudiaTravel:1487250146537504940> Upcoming Flights')
         .setColor(0x006C35)
         .setImage('https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c871cf&is=69c7204f&hm=d581579540ce52f586b3ce430dfb74cc07afbb796ac645979b923d18b763a9f4&=&format=webp&quality=lossless') // Replace with your image
         .addFields(
-          { name: `Flight Number: ${flightNumber}`, value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`, inline: false }
+          { name: `Flight Number: ${flightNumber}`, value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`, inline: false },
+          { name: '\u200B', value: '@here', inline: false } // Hidden @here
         );
 
       const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'departures');
@@ -237,8 +238,7 @@ client.on('interactionCreate', async interaction => {
 
       hostChannel.send({
         embeds: [embed],
-        content: '@here',
-        allowedMentions: { parse: [] } // Hidden @here
+        allowedMentions: { parse: [] } // Prevent ping
       });
 
       await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
