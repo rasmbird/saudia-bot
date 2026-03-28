@@ -9,12 +9,15 @@ const CLIENT_ID = '1138806788708368544';
 const TOKEN = process.env.TOKEN;
 const DATA_FILE = './flights.json';
 
-// ===== INITIALIZE DATA FILE =====
+// ===== IMAGE STORED =====
+const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c91a8f&is=69c7c90f&hm=93686de71b51add6562458d6fcba6c968dee3cfcfc1395e20242cbf22d5d4e15&=&format=webp&quality=lossless';
+
+// ===== INIT FILE =====
 if (!fs.existsSync(DATA_FILE)) {
   fs.writeFileSync(DATA_FILE, JSON.stringify({}), 'utf-8');
 }
 
-// ===== SLASH COMMANDS =====
+// ===== COMMANDS =====
 const commands = [
   new SlashCommandBuilder()
     .setName('logflight')
@@ -73,7 +76,7 @@ const commands = [
         .setRequired(true))
 ].map(cmd => cmd.toJSON());
 
-// ===== REGISTER COMMANDS =====
+// ===== REGISTER =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
@@ -89,12 +92,12 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// ===== BOT READY =====
+// ===== READY =====
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// ===== HELPER: LOAD / SAVE =====
+// ===== DATA =====
 function loadData() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
@@ -111,7 +114,7 @@ function saveData(data) {
   }
 }
 
-// ===== HANDLE INTERACTIONS =====
+// ===== INTERACTIONS =====
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -119,7 +122,7 @@ client.on('interactionCreate', async interaction => {
     const data = loadData();
     const memberRoles = interaction.member.roles.cache;
 
-    // -------- LOGFLIGHT --------
+    // ===== LOGFLIGHT =====
     if (interaction.commandName === 'logflight') {
       const allowedRoles = ['CP | Captain', 'FO | First Officer'];
       const hasPermission = memberRoles.some(role => allowedRoles.includes(role.name));
@@ -137,6 +140,7 @@ client.on('interactionCreate', async interaction => {
 
       const userId = interaction.user.id;
       if (!data[userId]) data[userId] = { count: 0, lastFlight: null };
+
       data[userId].count += 1;
       data[userId].lastFlight = new Date().toISOString();
       saveData(data);
@@ -160,7 +164,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ content: 'Flight logged successfully.', ephemeral: true });
     }
 
-    // -------- STATS --------
+    // ===== STATS =====
     if (interaction.commandName === 'stats') {
       const targetUser = interaction.options.getUser('pilot') || interaction.user;
       const userId = targetUser.id;
@@ -172,13 +176,19 @@ client.on('interactionCreate', async interaction => {
         .setColor(0x006C35)
         .addFields(
           { name: 'Total Flights', value: `${userData.count}`, inline: true },
-          { name: 'Last Flight', value: userData.lastFlight === 'Never' ? 'Never' : new Date(userData.lastFlight).toLocaleString(), inline: true }
+          {
+            name: 'Last Flight',
+            value: userData.lastFlight === 'Never'
+              ? 'Never'
+              : new Date(userData.lastFlight).toLocaleString(),
+            inline: true
+          }
         );
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // -------- LEADERBOARD --------
+    // ===== LEADERBOARD =====
     if (interaction.commandName === 'leaderboard') {
       const leaderboard = Object.entries(data)
         .map(([id, info]) => ({ id, count: info.count }))
@@ -189,22 +199,21 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'No flights logged yet.', ephemeral: true });
       }
 
-      const fields = leaderboard.map((pilot, index) => {
-        const user = interaction.guild.members.cache.get(pilot.id);
-        const mention = user ? `<@${pilot.id}>` : 'Unknown User';
-        return { name: `#${index + 1} ${mention}`, value: `Flights: ${pilot.count}`, inline: false };
-      });
+      const fields = leaderboard.map((pilot, index) => ({
+        name: `#${index + 1} <@${pilot.id}>`,
+        value: `Flights: ${pilot.count}`,
+        inline: false
+      }));
 
       const embed = new EmbedBuilder()
         .setTitle('Top Pilots Leaderboard')
         .setColor(0x006C35)
-        .addFields(fields)
-        .setFooter({ text: `Updated: ${new Date().toLocaleString()}` });
+        .addFields(fields);
 
-      await interaction.reply({ embeds: [embed], ephemeral: false });
+      await interaction.reply({ embeds: [embed] });
     }
 
-    // -------- HOSTFLIGHT --------
+    // ===== HOSTFLIGHT =====
     if (interaction.commandName === 'hostflight') {
       const requiredRole = 'Flight Operations License';
       const hasPermission = memberRoles.some(role => role.name === requiredRole);
@@ -225,12 +234,20 @@ client.on('interactionCreate', async interaction => {
       const timestamp = Math.floor(dateTime.getTime() / 1000);
 
       const embed = new EmbedBuilder()
-        .setTitle('<:SaudiaTravel:1487250146537504940> Upcoming Flights')
+        .setTitle('Upcoming Flights') // ✅ sticker removed only
         .setColor(0x006C35)
-        .setImage('https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c871cf&is=69c7204f&hm=d581579540ce52f586b3ce430dfb74cc07afbb796ac645979b923d18b763a9f4&=&format=webp&quality=lossless') // Replace with your image
+        .setImage(UPCOMING_FLIGHT_IMAGE)
         .addFields(
-          { name: `Flight Number: ${flightNumber}`, value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`, inline: false },
-          { name: '\u200B', value: '@here', inline: false } // Hidden @here
+          {
+            name: `Flight Number: ${flightNumber}`,
+            value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`,
+            inline: false
+          },
+          {
+            name: '\u200B',
+            value: '@here',
+            inline: false
+          }
         );
 
       const hostChannel = interaction.guild.channels.cache.find(c => c.name === 'departures');
@@ -238,15 +255,15 @@ client.on('interactionCreate', async interaction => {
 
       hostChannel.send({
         embeds: [embed],
-        allowedMentions: { parse: [] } // Prevent ping
+        allowedMentions: { parse: [] }
       });
 
       await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
     }
 
   } catch (err) {
-    console.error('Error handling interaction:', err);
-    if (!interaction.replied && !interaction.deferred) {
+    console.error('Error:', err);
+    if (!interaction.replied) {
       interaction.reply({ content: 'Something went wrong.', ephemeral: true });
     }
   }
