@@ -1,20 +1,7 @@
-const {
-  Client,
-  GatewayIntentBits,
-  EmbedBuilder,
-  REST,
-  Routes,
-  SlashCommandBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require('discord.js');
-
+const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const fs = require('fs');
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const CLIENT_ID = '1138806788708368544';
 const TOKEN = process.env.TOKEN;
@@ -292,13 +279,22 @@ client.on('interactionCreate', async interaction => {
 
       const embed = new EmbedBuilder()
         .setTitle(title)
-        .setColor(0x006C35);
+        .setColor(0x006C35)
+        .setDescription(description || null);
 
-      if (description) embed.setDescription(description);
       if (imageUrl) embed.setImage(imageUrl);
 
-      // Mention the sender outside the embed
-      await channel.send({ content: `Sent by <@${interaction.user.id}>.`, embeds: [embed] });
+      await channel.send({ embeds: [embed] });
+
+      // ===== AUDIT LOG =====
+      const auditChannel = interaction.guild.channels.cache.find(c => c.name === 'saudia-audit-log');
+      if (auditChannel && auditChannel.isTextBased()) {
+        const auditEmbed = new EmbedBuilder()
+          .setTitle('SendMessage Audit')
+          .setColor(0x00AAFF)
+          .setDescription(`**User:** <@${interaction.user.id}>\n**Channel:** ${channel}\n**Title:** ${title}`);
+        await auditChannel.send({ embeds: [auditEmbed] });
+      }
 
       return interaction.reply({ content: 'Message sent.', ephemeral: true });
     }
