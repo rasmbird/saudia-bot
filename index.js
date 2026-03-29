@@ -282,7 +282,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       const channel = interaction.options.getChannel('channel');
-      const title = interaction.options.getString('title');
+      const title = interaction.options.getString('title') || '';
       const description = interaction.options.getString('description') || '';
       const imageUrl = interaction.options.getString('image_url') || '';
 
@@ -293,8 +293,8 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle(title)
         .setColor(0x006C35)
-        .setDescription(description)
-        .setFooter({ text: `Sent by: ${interaction.user.tag}` });
+        .setDescription(description || null)
+        .setFooter({ text: `Sent by: <@${interaction.user.id}>` }); // mention user
 
       if (imageUrl) embed.setImage(imageUrl);
 
