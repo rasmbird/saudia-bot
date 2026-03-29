@@ -82,6 +82,10 @@ const commands = [
       o.setName('time')
         .setDescription('Time HH:MM (KSA)')
         .setRequired(true))
+    .addStringOption(o =>
+      o.setName('additional_text')
+        .setDescription('Optional additional text for the flight hostess')
+        .setRequired(false))
 ].map(cmd => cmd.toJSON());
 
 // ===== REGISTER =====
@@ -120,7 +124,6 @@ function saveData(data) {
 // ===== MAIN =====
 client.on('interactionCreate', async interaction => {
 
-  // ===== COMMANDS =====
   if (interaction.isChatInputCommand()) {
     const data = loadData();
     const roles = interaction.member.roles.cache;
@@ -228,19 +231,20 @@ client.on('interactionCreate', async interaction => {
       const aircraft = interaction.options.getString('aircraft');
       const date = interaction.options.getString('date');
       const time = interaction.options.getString('time');
+      const additionalText = interaction.options.getString('additional_text') || '';
 
       const [hour, minute] = time.split(':').map(Number);
       const dateTime = new Date(`${date}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
       const timestamp = Math.floor(dateTime.getTime() / 1000);
 
+      let valueText = `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`;
+      if (additionalText) valueText += `\n${additionalText}`;
+
       const embed = new EmbedBuilder()
         .setTitle('Upcoming Flights')
         .setColor(0x006C35)
         .setImage(UPCOMING_FLIGHT_IMAGE)
-        .addFields({
-          name: `Flight ${flightNumber}`,
-          value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`
-        });
+        .addFields({ name: `Flight ${flightNumber}`, value: valueText });
 
       const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
       if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
