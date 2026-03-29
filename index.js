@@ -291,7 +291,7 @@ client.on('interactionCreate', async interaction => {
       if (auditChannel && auditChannel.isTextBased()) {
         const auditEmbed = new EmbedBuilder()
           .setTitle('SendMessage Audit')
-          .setColor(0x00AAFF)
+          .setColor(0x006C35)
           .setDescription(`**User:** <@${interaction.user.id}>\n**Channel:** ${channel}\n**Title:** ${title}`);
         await auditChannel.send({ embeds: [auditEmbed] });
       }
