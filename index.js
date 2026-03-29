@@ -215,40 +215,49 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({ embeds: [embed] });
     }
 
-    // ===== HOSTFLIGHT =====
-    if (interaction.commandName === 'hostflight') {
-      const requiredRole = 'Flight Operations License';
-      if (!roles.some(r => r.name === requiredRole)) {
-        return interaction.reply({ content: 'Not authorized.', ephemeral: true });
-      }
+// ===== HOSTFLIGHT =====
+if (interaction.commandName === 'hostflight') {
+  const requiredRole = 'Flight Operations License';
+  if (!roles.some(r => r.name === requiredRole)) {
+    return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+  }
 
-      const flightNumber = interaction.options.getString('flight_number');
-      const from = interaction.options.getString('from');
-      const to = interaction.options.getString('to');
-      const aircraft = interaction.options.getString('aircraft');
-      const date = interaction.options.getString('date');
-      const time = interaction.options.getString('time');
+  const flightNumber = interaction.options.getString('flight_number');
+  const from = interaction.options.getString('from');
+  const to = interaction.options.getString('to');
+  const aircraft = interaction.options.getString('aircraft');
+  const date = interaction.options.getString('date');
+  const time = interaction.options.getString('time');
+  const eventLink = interaction.options.getString('event'); // new input for event link
+  const eventName = eventLink.split('event=')[1] ? `SV${eventLink.split('event=')[1].slice(-4)}` : 'Event'; // extract last 4 digits as SV ID
 
-      const [hour, minute] = time.split(':').map(Number);
-      const dateTime = new Date(`${date}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
-      const timestamp = Math.floor(dateTime.getTime() / 1000);
+  const [hour, minute] = time.split(':').map(Number);
+  const dateTime = new Date(`${date}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
+  const timestamp = Math.floor(dateTime.getTime() / 1000);
 
-      const embed = new EmbedBuilder()
-        .setTitle('Upcoming Flights')
-        .setColor(0x006C35)
-        .setImage(UPCOMING_FLIGHT_IMAGE)
-        .addFields({
-          name: `Flight ${flightNumber}`,
-          value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`
-        });
+  const embed = new EmbedBuilder()
+    .setTitle('Upcoming Flights')
+    .setColor(0x006C35)
+    .setImage(UPCOMING_FLIGHT_IMAGE)
+    .addFields({
+      name: `Flight ${flightNumber}`,
+      value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`
+    });
 
-      const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
-      if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
+  const button = new ButtonBuilder()
+    .setLabel(eventName) // text shown
+    .setStyle(ButtonStyle.Link)
+    .setURL(eventLink); // clickable link
 
-      await channel.send({ embeds: [embed] });
+  const row = new ActionRowBuilder().addComponents(button);
 
-      return interaction.reply({ content: 'Flight hosted.', ephemeral: true });
-    }
+  const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
+  if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
+
+  await channel.send({ embeds: [embed], components: [row] });
+
+  return interaction.reply({ content: 'Flight hosted.', ephemeral: true });
+}
   }
 
   // ===== BUTTONS =====
