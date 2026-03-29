@@ -85,6 +85,27 @@ const commands = [
     .addStringOption(o =>
       o.setName('additional_text')
         .setDescription('Optional additional text for the flight hostess')
+        .setRequired(false)),
+
+  // ===== SENDMESSAGE COMMAND =====
+  new SlashCommandBuilder()
+    .setName('sendmessage')
+    .setDescription('Send an embedded message to a chosen channel')
+    .addChannelOption(option =>
+      option.setName('channel')
+        .setDescription('Channel to send the embed')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('title')
+        .setDescription('Title of the embed')
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName('description')
+        .setDescription('Description of the embed')
+        .setRequired(false))
+    .addStringOption(option =>
+      option.setName('image_url')
+        .setDescription('Optional image URL for the embed')
         .setRequired(false))
 ].map(cmd => cmd.toJSON());
 
@@ -252,6 +273,33 @@ client.on('interactionCreate', async interaction => {
       await channel.send({ embeds: [embed] });
 
       return interaction.reply({ content: 'Flight hosted.', ephemeral: true });
+    }
+
+    // ===== SENDMESSAGE =====
+    if (interaction.commandName === 'sendmessage') {
+      if (!roles.some(r => APPROVER_ROLES.includes(r.name))) {
+        return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+      }
+
+      const channel = interaction.options.getChannel('channel');
+      const title = interaction.options.getString('title');
+      const description = interaction.options.getString('description') || '';
+      const imageUrl = interaction.options.getString('image_url') || '';
+
+      if (!channel.isTextBased()) {
+        return interaction.reply({ content: 'Selected channel is not text-based.', ephemeral: true });
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle(title)
+        .setColor(0x006C35)
+        .setDescription(description);
+
+      if (imageUrl) embed.setImage(imageUrl);
+
+      await channel.send({ embeds: [embed] });
+
+      return interaction.reply({ content: 'Message sent.', ephemeral: true });
     }
   }
 
