@@ -293,7 +293,8 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle(title)
         .setColor(0x006C35)
-        .setDescription(description);
+        .setDescription(description)
+        .setFooter({ text: `Sent by: ${interaction.user.tag}` });
 
       if (imageUrl) embed.setImage(imageUrl);
 
