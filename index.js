@@ -292,13 +292,13 @@ client.on('interactionCreate', async interaction => {
 
       const embed = new EmbedBuilder()
         .setTitle(title)
-        .setColor(0x006C35)
-        .setDescription(description || null)
-        .setFooter({ text: `Sent by: <@${interaction.user.id}>` }); // mention user
+        .setColor(0x006C35);
 
+      if (description) embed.setDescription(description);
       if (imageUrl) embed.setImage(imageUrl);
 
-      await channel.send({ embeds: [embed] });
+      // Mention the sender outside the embed
+      await channel.send({ content: `Sent by <@${interaction.user.id}>.`, embeds: [embed] });
 
       return interaction.reply({ content: 'Message sent.', ephemeral: true });
     }
