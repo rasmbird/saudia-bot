@@ -1,313 +1,218 @@
-const {
-  Client,
-  GatewayIntentBits,
-  EmbedBuilder,
-  REST,
-  Routes,
-  SlashCommandBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require('discord.js');
-
+const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const fs = require('fs');
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const CLIENT_ID = '1138806788708368544';
 const TOKEN = process.env.TOKEN;
-const DATA_FILE = './flights.json';
+const FLIGHTS_FILE = './flights.json';
+const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png?ex=69c91a8f&is=69c7c90f&hm=93686de71b51add6562458d6fcba6c968dee3cfcfc1395e20242cbf22d5d4e15&=&format=webp&quality=lossless';
 
-const APPROVER_ROLES = [
-  "OM | Operations Manager",
-  "HR | Human Resources",
-  "EX | Executive",
-  "CO | Chief Officer",
-  "S | Saudia",
-  "F | Founder"
-];
-
-const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png';
-
-// ===== INIT FILE =====
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({}), 'utf-8');
+// ===== INITIALIZE DATA FILE =====
+if (!fs.existsSync(FLIGHTS_FILE)) {
+  fs.writeFileSync(FLIGHTS_FILE, JSON.stringify({}), 'utf-8');
 }
 
-// ===== COMMANDS =====
+// ===== SLASH COMMANDS =====
 const commands = [
   new SlashCommandBuilder()
     .setName('logflight')
-    .setDescription('Request a flight log')
+    .setDescription('Log a flight')
     .addStringOption(option =>
       option.setName('event')
-        .setDescription('Event name (e.g. SV637)')
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName('stats')
-    .setDescription('Check your flight stats'),
-
-  new SlashCommandBuilder()
-    .setName('leaderboard')
-    .setDescription('Top pilots'),
-
+        .setDescription('Select a Discord Event to log')
+        .setRequired(true)),
   new SlashCommandBuilder()
     .setName('hostflight')
     .setDescription('Host a flight')
-    .addStringOption(o =>
-      o.setName('flight_number')
-        .setDescription('Flight number (e.g. SV123)')
+    .addStringOption(option =>
+      option.setName('flight_number')
+        .setDescription('Flight Number (e.g. SV123)')
         .setRequired(true))
-    .addStringOption(o =>
-      o.setName('from')
-        .setDescription('Departure airport')
+    .addStringOption(option =>
+      option.setName('from')
+        .setDescription('Departure Airport (e.g. RUH)')
         .setRequired(true))
-    .addStringOption(o =>
-      o.setName('to')
-        .setDescription('Arrival airport')
+    .addStringOption(option =>
+      option.setName('to')
+        .setDescription('Arrival Airport (e.g. JED)')
         .setRequired(true))
-    .addStringOption(o =>
-      o.setName('aircraft')
-        .setDescription('Aircraft type')
+    .addStringOption(option =>
+      option.setName('aircraft')
+        .setDescription('Aircraft Type (e.g. A321)')
         .setRequired(true))
-    .addStringOption(o =>
-      o.setName('date')
-        .setDescription('Date YYYY-MM-DD')
+    .addStringOption(option =>
+      option.setName('date')
+        .setDescription('Date of Flight (YYYY-MM-DD)')
         .setRequired(true))
-    .addStringOption(o =>
-      o.setName('time')
-        .setDescription('Time HH:MM (KSA)')
+    .addStringOption(option =>
+      option.setName('time')
+        .setDescription('Join Time (HH:MM, 24h format)')
         .setRequired(true))
+    .addStringOption(option =>
+      option.setName('event')
+        .setDescription('Event link for flight')
+        .setRequired(true)),
+  new SlashCommandBuilder()
+    .setName('stats')
+    .setDescription('Check total flights logged for a pilot')
+    .addUserOption(option =>
+      option.setName('pilot')
+        .setDescription('Select a pilot')
+        .setRequired(false)),
+  new SlashCommandBuilder()
+    .setName('leaderboard')
+    .setDescription('Show the flight leaderboard')
 ].map(cmd => cmd.toJSON());
 
-// ===== REGISTER =====
+// ===== REGISTER COMMANDS =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
   try {
-    console.log('Registering commands...');
+    console.log('Registering slash commands...');
     await rest.put(
       Routes.applicationCommands(CLIENT_ID),
       { body: commands }
     );
-    console.log('Commands registered.');
-  } catch (err) {
-    console.error('Register Error:', err);
+    console.log('Slash commands registered.');
+  } catch (error) {
+    console.error(error);
   }
 })();
 
+// ===== BOT READY =====
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// ===== DATA =====
+// ===== HELPER: LOAD / SAVE =====
 function loadData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE));
-  } catch {
-    return {};
-  }
+  return JSON.parse(fs.readFileSync(FLIGHTS_FILE, 'utf-8'));
 }
-
 function saveData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  fs.writeFileSync(FLIGHTS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-// ===== MAIN =====
+// ===== HANDLE INTERACTIONS =====
 client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
 
-  // ===== COMMANDS =====
-  if (interaction.isChatInputCommand()) {
-    const data = loadData();
-    const roles = interaction.member.roles.cache;
+  const data = loadData();
+  const roles = interaction.member.roles.cache;
 
-    // ===== LOGFLIGHT (REQUEST) =====
-    if (interaction.commandName === 'logflight') {
-      const allowedRoles = ['CP | Captain', 'FO | First Officer'];
-      if (!roles.some(r => allowedRoles.includes(r.name))) {
-        return interaction.reply({ content: 'Not authorized.', ephemeral: true });
-      }
+  // -------- LOGFLIGHT --------
+  if (interaction.commandName === 'logflight') {
+    const allowedRoles = ['CP | Captain', 'FO | First Officer'];
+    const hasPermission = roles.some(role => allowedRoles.includes(role.name));
+    if (!hasPermission) return interaction.reply({ content: 'You are not authorized to log flights.', ephemeral: true });
 
-      const event = interaction.options.getString('event');
-      const requestChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs-requests');
+    const eventLink = interaction.options.getString('event');
+    const eventName = interaction.guild.scheduledEvents.cache.get(eventLink.split('event=')[1])?.name || 'Event';
 
-      if (!requestChannel) {
-        return interaction.reply({ content: 'Request channel not found.', ephemeral: true });
-      }
+    const requestChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs-requests');
+    if (!requestChannel) return interaction.reply({ content: 'Requests channel not found.', ephemeral: true });
 
-      const timestamp = Math.floor(Date.now() / 1000);
+    // ---- EMBED FOR APPROVAL ----
+    const embed = new EmbedBuilder()
+      .setTitle('Flight Log Approval Request')
+      .setColor(0x006C35)
+      .addFields(
+        { name: 'Requested By', value: `<@${interaction.user.id}>`, inline: true },
+        { name: 'Event', value: eventName, inline: true }
+      )
+      .setFooter({ text: `Role-based approval system` });
 
-      const embed = new EmbedBuilder()
-        .setTitle('Flight Log Request')
-        .setColor(0x006C35)
-        .addFields(
-          { name: 'Pilot', value: `<@${interaction.user.id}>` },
-          { name: 'Event', value: event },
-          { name: 'Time', value: `<t:${timestamp}:f>` }
-        );
+    const approveButton = new ButtonBuilder()
+      .setCustomId(`approve_${interaction.user.id}`)
+      .setLabel('Approve')
+      .setStyle(ButtonStyle.Success);
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`approve_${interaction.user.id}_${event}`)
-          .setLabel('Approve')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`deny_${interaction.user.id}_${event}`)
-          .setLabel('Deny')
-          .setStyle(ButtonStyle.Danger)
+    const denyButton = new ButtonBuilder()
+      .setCustomId(`deny_${interaction.user.id}`)
+      .setLabel('Deny')
+      .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder().addComponents(approveButton, denyButton);
+
+    await requestChannel.send({ embeds: [embed], components: [row] });
+    return interaction.reply({ content: 'Flight log request sent for approval.', ephemeral: true });
+  }
+
+  // -------- HOSTFLIGHT --------
+  if (interaction.commandName === 'hostflight') {
+    const requiredRole = 'Flight Operations License';
+    if (!roles.some(r => r.name === requiredRole)) return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+
+    const flightNumber = interaction.options.getString('flight_number');
+    const from = interaction.options.getString('from');
+    const to = interaction.options.getString('to');
+    const aircraft = interaction.options.getString('aircraft');
+    const date = interaction.options.getString('date');
+    const time = interaction.options.getString('time');
+    const eventLink = interaction.options.getString('event');
+    const eventName = eventLink.split('event=')[1] ? `SV${eventLink.split('event=')[1].slice(-4)}` : 'Event';
+
+    const [hour, minute] = time.split(':').map(Number);
+    const dateTime = new Date(`${date}T${hour.toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
+    const timestamp = Math.floor(dateTime.getTime() / 1000);
+
+    const embed = new EmbedBuilder()
+      .setTitle('Upcoming Flights')
+      .setColor(0x006C35)
+      .setImage(UPCOMING_FLIGHT_IMAGE)
+      .addFields({
+        name: `Flight ${flightNumber}`,
+        value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`
+      });
+
+    const button = new ButtonBuilder()
+      .setLabel(eventName)
+      .setStyle(ButtonStyle.Link)
+      .setURL(eventLink);
+
+    const row = new ActionRowBuilder().addComponents(button);
+    const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
+    if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
+
+    await channel.send({ embeds: [embed], components: [row] });
+    return interaction.reply({ content: 'Flight hosted.', ephemeral: true });
+  }
+
+  // -------- STATS --------
+  if (interaction.commandName === 'stats') {
+    const targetUser = interaction.options.getUser('pilot') || interaction.user;
+    const userId = targetUser.id;
+    const userData = data[userId] || { count: 0, lastFlight: 'Never' };
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Flight Stats for ${targetUser.username}`)
+      .setColor(0x006C35)
+      .addFields(
+        { name: 'Total Flights', value: `${userData.count}`, inline: true },
+        { name: 'Last Flight', value: userData.lastFlight === 'Never' ? 'Never' : new Date(userData.lastFlight).toLocaleString(), inline: true }
       );
 
-      await requestChannel.send({ embeds: [embed], components: [row] });
-
-      return interaction.reply({
-        content: 'Flight log request sent.',
-        ephemeral: true
-      });
-    }
-
-    // ===== STATS =====
-    if (interaction.commandName === 'stats') {
-      const d = data[interaction.user.id] || { count: 0, lastFlight: 'Never' };
-
-      const embed = new EmbedBuilder()
-        .setTitle(`Stats: ${interaction.user.username}`)
-        .setColor(0x006C35)
-        .addFields(
-          { name: 'Flights', value: `${d.count}`, inline: true },
-          {
-            name: 'Last Flight',
-            value: d.lastFlight === 'Never'
-              ? 'Never'
-              : new Date(d.lastFlight).toLocaleString(),
-            inline: true
-          }
-        );
-
-      return interaction.reply({ embeds: [embed], ephemeral: true });
-    }
-
-    // ===== LEADERBOARD =====
-    if (interaction.commandName === 'leaderboard') {
-      const leaderboard = Object.entries(data)
-        .map(([id, info]) => ({ id, count: info.count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      const fields = leaderboard.map((p, i) => {
-        const member = interaction.guild.members.cache.get(p.id);
-        const name = member ? member.displayName : 'Unknown User';
-
-        return {
-          name: `#${i + 1} ${name}`,
-          value: `Flights: ${p.count}`
-        };
-      });
-
-      const embed = new EmbedBuilder()
-        .setTitle('Leaderboard')
-        .setColor(0x006C35)
-        .addFields(fields);
-
-      return interaction.reply({ embeds: [embed] });
-    }
-
-// ===== HOSTFLIGHT =====
-if (interaction.commandName === 'hostflight') {
-  const requiredRole = 'Flight Operations License';
-  if (!roles.some(r => r.name === requiredRole)) {
-    return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
-  const flightNumber = interaction.options.getString('flight_number');
-  const from = interaction.options.getString('from');
-  const to = interaction.options.getString('to');
-  const aircraft = interaction.options.getString('aircraft');
-  const date = interaction.options.getString('date');
-  const time = interaction.options.getString('time');
-  const eventLink = interaction.options.getString('event'); // new input for event link
-  const eventName = eventLink.split('event=')[1] ? `SV${eventLink.split('event=')[1].slice(-4)}` : 'Event'; // extract last 4 digits as SV ID
+  // -------- LEADERBOARD --------
+  if (interaction.commandName === 'leaderboard') {
+    const sorted = Object.entries(data).sort((a, b) => b[1].count - a[1].count).slice(0, 10);
+    const embed = new EmbedBuilder()
+      .setTitle('Flight Leaderboard')
+      .setColor(0x006C35);
 
-  const [hour, minute] = time.split(':').map(Number);
-  const dateTime = new Date(`${date}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
-  const timestamp = Math.floor(dateTime.getTime() / 1000);
-
-  const embed = new EmbedBuilder()
-    .setTitle('Upcoming Flights')
-    .setColor(0x006C35)
-    .setImage(UPCOMING_FLIGHT_IMAGE)
-    .addFields({
-      name: `Flight ${flightNumber}`,
-      value: `Route: ${from} → ${to}\nAircraft: ${aircraft}\nJoin Time: <t:${timestamp}:f>\nHosted By: <@${interaction.user.id}>`
-    });
-
-  const button = new ButtonBuilder()
-    .setLabel(eventName) // text shown
-    .setStyle(ButtonStyle.Link)
-    .setURL(eventLink); // clickable link
-
-  const row = new ActionRowBuilder().addComponents(button);
-
-  const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
-  if (!channel) return interaction.reply({ content: 'Channel not found.', ephemeral: true });
-
-  await channel.send({ embeds: [embed], components: [row] });
-
-  return interaction.reply({ content: 'Flight hosted.', ephemeral: true });
-}
-  }
-
-  // ===== BUTTONS =====
-  if (interaction.isButton()) {
-    const roles = interaction.member.roles.cache;
-
-    if (!roles.some(r => APPROVER_ROLES.includes(r.name))) {
-      return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+    let description = '';
+    for (let i = 0; i < sorted.length; i++) {
+      const userId = sorted[i][0];
+      const user = await client.users.fetch(userId);
+      description += `#${i + 1} ${user.username} — ${sorted[i][1].count}\n`;
     }
+    embed.setDescription(description);
 
-    const data = loadData();
-    const [action, userId, event] = interaction.customId.split('_');
-
-    const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
-
-    if (action === 'approve') {
-      if (!data[userId]) data[userId] = { count: 0, lastFlight: null };
-
-      data[userId].count++;
-      data[userId].lastFlight = new Date().toISOString();
-      saveData(data);
-
-      const approvedEmbed = new EmbedBuilder()
-        .setTitle('Flight Approved')
-        .setColor(0x006C35)
-        .setDescription(`<@${userId}> your flight has been approved.`);
-
-      const logEmbed = new EmbedBuilder()
-        .setTitle('Flight Log')
-        .setColor(0x006C35)
-        .addFields(
-          { name: 'Pilot', value: `<@${userId}>` },
-          { name: 'Event', value: event },
-          { name: 'Total Flights', value: `${data[userId].count}` }
-        );
-
-      if (logChannel) await logChannel.send({ embeds: [logEmbed] });
-
-      return interaction.update({ embeds: [approvedEmbed], components: [] });
-    }
-
-    if (action === 'deny') {
-      const deniedEmbed = new EmbedBuilder()
-        .setTitle('Flight Denied')
-        .setColor(0xFF0000)
-        .setDescription(`Sorry <@${userId}>, your request has been denied.`);
-
-      return interaction.update({ embeds: [deniedEmbed], components: [] });
-    }
+    await interaction.reply({ embeds: [embed], ephemeral: false });
   }
 });
 
+// ===== LOGIN =====
 client.login(TOKEN);
