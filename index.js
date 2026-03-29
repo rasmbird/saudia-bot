@@ -20,18 +20,10 @@ if (!fs.existsSync(DATA_FILE)) {
 const commands = [
   new SlashCommandBuilder()
     .setName('logflight')
-    .setDescription('Log a flight')
+    .setDescription('Log a flight using event')
     .addStringOption(option =>
-      option.setName('flight')
-        .setDescription('Flight Number (e.g. SV123)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('from')
-        .setDescription('Departure Airport (e.g. RUH)')
-        .setRequired(true))
-    .addStringOption(option =>
-      option.setName('to')
-        .setDescription('Arrival Airport (e.g. JED)')
+      option.setName('event')
+        .setDescription('Event name (e.g. SV637)')
         .setRequired(true)),
 
   new SlashCommandBuilder()
@@ -121,7 +113,7 @@ client.on('interactionCreate', async interaction => {
     const data = loadData();
     const memberRoles = interaction.member.roles.cache;
 
-    // -------- LOGFLIGHT --------
+    // -------- LOGFLIGHT (UPDATED ONLY) --------
     if (interaction.commandName === 'logflight') {
       const allowedRoles = ['CP | Captain', 'FO | First Officer'];
       const hasPermission = memberRoles.some(role => allowedRoles.includes(role.name));
@@ -130,9 +122,7 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: 'You are not authorized to log flights.', ephemeral: true });
       }
 
-      const flightNumber = interaction.options.getString('flight');
-      const from = interaction.options.getString('from');
-      const to = interaction.options.getString('to');
+      const eventName = interaction.options.getString('event');
 
       const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
       if (!logChannel) return interaction.reply({ content: 'Flight log channel not found.', ephemeral: true });
@@ -153,8 +143,7 @@ client.on('interactionCreate', async interaction => {
         .setColor(0x006C35)
         .addFields(
           { name: roleTitle, value: `<@${interaction.user.id}>`, inline: false },
-          { name: 'Flight Number', value: flightNumber, inline: true },
-          { name: 'Route', value: `${from} → ${to}`, inline: true },
+          { name: 'Event', value: eventName, inline: true },
           { name: 'Total Flights', value: `${data[userId].count}`, inline: true }
         )
         .setFooter({ text: `Time: ${new Date().toLocaleString()}` });
@@ -187,7 +176,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // -------- LEADERBOARD (ONLY CHANGE) --------
+    // -------- LEADERBOARD --------
     if (interaction.commandName === 'leaderboard') {
       const leaderboard = Object.entries(data)
         .map(([id, info]) => ({ id, count: info.count }))
@@ -267,7 +256,7 @@ client.on('interactionCreate', async interaction => {
         allowedMentions: { parse: [] }
       });
 
-      await interaction.reply({ content: 'Flight hosted successfully.', ephemeral: true });
+      await interaction.reply({ content: 'Flight hosted successfully!', ephemeral: true });
     }
 
   } catch (err) {
