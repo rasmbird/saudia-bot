@@ -210,7 +210,7 @@ client.on('interactionCreate', async interaction => {
 
       const fields = leaderboard.map((p, i) => {
         const member = interaction.guild.members.cache.get(p.id);
-        const name = member ? `<@${member.id}>` : `<@${p.id}>`;
+        const name = member ? `<@${member.id}>` : 'Unknown User';
 
         return {
           name: `#${i + 1} ${name}`,
