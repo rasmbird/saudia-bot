@@ -17,7 +17,10 @@ const APPROVER_ROLES = [
 ];
 
 const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png';
-const sendMessageCooldown = new Map();
+
+// ===== SENDMESSAGE COOLDOWN =====
+const SENDMESSAGE_COOLDOWN_MS = 60_000;
+const sendMessageCooldowns = new Map(); // userId -> lastUsedMs
 
 // ===== INIT FILE =====
 if (!fs.existsSync(DATA_FILE)) {
@@ -266,22 +269,24 @@ client.on('interactionCreate', async interaction => {
     // ===== SENDMESSAGE =====
     if (interaction.commandName === 'sendmessage') {
       if (!roles.some(r => APPROVER_ROLES.includes(r.name))) {
-        const isFounder = roles.some(r => r.name === "F | Founder");
-        const now = Date.now();
-
-        if (!isFounder) {
-                      const lastUsed = sendMessageCooldown.get(interaction.user.id);
-  if (lastUsed && now - lastUsed < 60000) {
-    return interaction.reply({
-      content: 'You must wait 1 minute before using this command again.',
-      ephemeral: true
-    });
-  }
-
-  sendMessageCooldown.set(interaction.user.id, now);
-}
-
         return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+      }
+
+      const isFounder = roles.some(r => r.name === 'F | Founder');
+
+      if (!isFounder) {
+        const now = Date.now();
+        const lastUsed = sendMessageCooldowns.get(interaction.user.id) || 0;
+        const remaining = SENDMESSAGE_COOLDOWN_MS - (now - lastUsed);
+
+        if (remaining > 0) {
+          return interaction.reply({
+            content: `Please wait ${Math.ceil(remaining / 1000)}s before using \`/sendmessage\` again.`,
+            ephemeral: true
+          });
+        }
+
+        sendMessageCooldowns.set(interaction.user.id, now);
       }
 
       const channel = interaction.options.getChannel('channel');
@@ -296,10 +301,9 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle(title)
         .setColor(0x006C35)
-        let finalDescription = description || '';
-        finalDescription += `\n\nSent by <@${interaction.user.id}>`;
-      
-        .setDescription(finalDescription);
+        .setDescription(description || null)
+        // clickable mention, placed as the last field (bottom)
+        .addFields({ name: 'Sent by', value: `<@${interaction.user.id}>`, inline: false });
 
       if (imageUrl) embed.setImage(imageUrl);
 
