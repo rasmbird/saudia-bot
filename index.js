@@ -40,7 +40,12 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('Check your flight stats'),
+    .setDescription('Check flight stats (yours or someone else)')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('User to check (optional)')
+        .setRequired(false)
+    ),
 
   new SlashCommandBuilder()
     .setName('leaderboard')
@@ -186,10 +191,11 @@ client.on('interactionCreate', async interaction => {
 
     // ===== STATS =====
     if (interaction.commandName === 'stats') {
-      const d = data[interaction.user.id] || { count: 0, lastFlight: 'Never' };
+      const targetUser = interaction.options.getUser('user') || interaction.user;
+      const d = data[targetUser.id] || { count: 0, lastFlight: 'Never' };
 
       const embed = new EmbedBuilder()
-        .setTitle(`Stats: ${interaction.user.username}`)
+        .setTitle(`Stats: ${targetUser.username}`)
         .setColor(0x006C35)
         .addFields(
           { name: 'Flights', value: `${d.count}`, inline: true },
