@@ -396,6 +396,48 @@ client.on('interactionCreate', async interaction => {
     }
 
     const data = loadData();
+
+    // ===== CANCELLOG BUTTONS =====
+    if (interaction.customId.startsWith('cancellog_')) {
+      const [, targetUserId, indexStr] = interaction.customId.split('_');
+      const idx = Number(indexStr);
+
+      const targetUserData = ensureUserData(data, targetUserId);
+
+      const maxButtons = 25;
+      const shownLogs = targetUserData.logs.slice(-maxButtons).reverse(); // newest first
+
+      if (!Number.isInteger(idx) || idx < 0 || idx >= shownLogs.length) {
+        return interaction.reply({ content: 'That log selection is no longer valid.', ephemeral: true });
+      }
+
+      // Map shown index back to real index in stored array
+      const realIndex = targetUserData.logs.length - 1 - idx;
+      const removed = targetUserData.logs.splice(realIndex, 1)[0];
+
+      // Make flights match the remaining logs count (THIS is the 2 -> 1 behavior)
+      targetUserData.count = targetUserData.logs.length;
+
+      // Update lastFlight
+      if (targetUserData.logs.length === 0) {
+        targetUserData.lastFlight = 'Never';
+      } else {
+        const newest = targetUserData.logs[targetUserData.logs.length - 1];
+        targetUserData.lastFlight = newest.createdAt || targetUserData.lastFlight;
+      }
+
+      saveData(data);
+
+      const ev = removed?.event || 'Unknown event';
+
+      const embed = new EmbedBuilder()
+        .setTitle('Flight Log Cancelled')
+        .setColor(0xFF0000)
+        .setDescription(`Removed log **${ev}** for <@${targetUserId}>.\nNew total flights: **${targetUserData.count}**`);
+
+      return interaction.update({ embeds: [embed], components: [] });
+    }
+
     const [action, userId, event] = interaction.customId.split('_');
 
     const logChannel = interaction.guild.channels.cache.find(c => c.name === 'flight-logs');
@@ -455,61 +497,22 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({ content: 'Not authorized.', ephemeral: true });
     }
 
-    if (interaction.customId.startsWith('denyreason_')) {
-      const [, userId, event] = interaction.customId.split('_');
-      const reason = interaction.fields.getTextInputValue('reason');
+    if (!interaction.customId.startsWith('denyreason_')) return;
 
-      const deniedEmbed = new EmbedBuilder()
-        .setTitle('Flight Denied')
-        .setColor(0xFF0000)
-        .setDescription(`Sorry <@${userId}>, your request has been denied.`)
-        .addFields(
-          { name: 'Event', value: event },
-          { name: 'Denied By', value: `<@${interaction.user.id}>` },
-          { name: 'Reason', value: reason }
-        );
+    const [, userId, event] = interaction.customId.split('_');
+    const reason = interaction.fields.getTextInputValue('reason');
 
-      return interaction.update({ embeds: [deniedEmbed], components: [] });
-    }
+    const deniedEmbed = new EmbedBuilder()
+      .setTitle('Flight Denied')
+      .setColor(0xFF0000)
+      .setDescription(`Sorry <@${userId}>, your request has been denied.`)
+      .addFields(
+        { name: 'Event', value: event },
+        { name: 'Denied By', value: `<@${interaction.user.id}>` },
+        { name: 'Reason', value: reason }
+      );
 
-    if (interaction.customId.startsWith('cancellog_')) {
-      const [, userId, indexStr] = interaction.customId.split('_');
-      const idx = Number(indexStr);
-
-      const data = loadData();
-      const userData = ensureUserData(data, userId);
-
-      const maxButtons = 25;
-      const shownLogs = userData.logs.slice(-maxButtons).reverse();
-
-      if (!Number.isInteger(idx) || idx < 0 || idx >= shownLogs.length) {
-        return interaction.reply({ content: 'That log selection is no longer valid.', ephemeral: true });
-      }
-
-      const selectedLog = shownLogs[idx];
-
-      // Remove the selected log from the real array
-      const realIndex = userData.logs.length - 1 - idx;
-      const removed = userData.logs.splice(realIndex, 1)[0];
-
-      userData.count = Math.max(0, userData.count - 1);
-      if (userData.count !== userData.logs.length) userData.count = userData.logs.length;
-
-      userData.lastFlight = userData.logs.length > 0
-        ? (userData.logs[userData.logs.length - 1].createdAt || userData.lastFlight)
-        : 'Never';
-
-      saveData(data);
-
-      const ev = (removed && removed.event) ? removed.event : (selectedLog && selectedLog.event) ? selectedLog.event : 'Unknown event';
-
-      const embed = new EmbedBuilder()
-        .setTitle('Flight Log Cancelled')
-        .setColor(0xFF0000)
-        .setDescription(`Removed log **${ev}** for <@${userId}>.\nNew total flights: **${userData.count}**`);
-
-      return interaction.update({ embeds: [embed], components: [] });
-    }
+    return interaction.update({ embeds: [deniedEmbed], components: [] });
   }
 });
 
