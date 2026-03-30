@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const fs = require('fs');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -359,13 +359,48 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (action === 'deny') {
-      const deniedEmbed = new EmbedBuilder()
-        .setTitle('Flight Denied')
-        .setColor(0xFF0000)
-        .setDescription(`Sorry <@${userId}>, your request has been denied.`);
+      const modal = new ModalBuilder()
+        .setCustomId(`denyreason_${userId}_${event}`)
+        .setTitle('Deny Flight Log Request');
 
-      return interaction.update({ embeds: [deniedEmbed], components: [] });
+      const reasonInput = new TextInputBuilder()
+        .setCustomId('reason')
+        .setLabel('Reason for denial')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000);
+
+      const row = new ActionRowBuilder().addComponents(reasonInput);
+      modal.addComponents(row);
+
+      return interaction.showModal(modal);
     }
+  }
+
+  // ===== DENY REASON MODAL =====
+  if (interaction.isModalSubmit()) {
+    const roles = interaction.member.roles.cache;
+
+    if (!roles.some(r => APPROVER_ROLES.includes(r.name))) {
+      return interaction.reply({ content: 'Not authorized.', ephemeral: true });
+    }
+
+    if (!interaction.customId.startsWith('denyreason_')) return;
+
+    const [, userId, event] = interaction.customId.split('_');
+    const reason = interaction.fields.getTextInputValue('reason');
+
+    const deniedEmbed = new EmbedBuilder()
+      .setTitle('Flight Denied')
+      .setColor(0xFF0000)
+      .setDescription(`Sorry <@${userId}>, your request has been denied.`)
+      .addFields(
+        { name: 'Event', value: event },
+        { name: 'Denied By', value: `<@${interaction.user.id}>` },
+        { name: 'Reason', value: reason }
+      );
+
+    return interaction.update({ embeds: [deniedEmbed], components: [] });
   }
 });
 
