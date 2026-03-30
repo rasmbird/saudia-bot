@@ -147,7 +147,7 @@ client.on('interactionCreate', async interaction => {
 
     // ===== LOGFLIGHT (REQUEST) =====
     if (interaction.commandName === 'logflight') {
-      const allowedRoles = ['CP | Captain', 'FO | First Officer'];
+      const allowedRoles = ['P | Pilot', 'FO | First Officer'];
       if (!roles.some(r => allowedRoles.includes(r.name))) {
         return interaction.reply({ content: 'Not authorized.', ephemeral: true });
       }
