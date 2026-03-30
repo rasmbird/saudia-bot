@@ -17,6 +17,7 @@ const APPROVER_ROLES = [
 ];
 
 const UPCOMING_FLIGHT_IMAGE = 'https://media.discordapp.net/attachments/1487215768188883044/1487246574462435338/Saudia_Upcoming_Flight.png';
+const sendMessageCooldown = new Map();
 
 // ===== INIT FILE =====
 if (!fs.existsSync(DATA_FILE)) {
@@ -265,6 +266,21 @@ client.on('interactionCreate', async interaction => {
     // ===== SENDMESSAGE =====
     if (interaction.commandName === 'sendmessage') {
       if (!roles.some(r => APPROVER_ROLES.includes(r.name))) {
+        const isFounder = roles.some(r => r.name === "F | Founder");
+        const now = Date.now();
+
+        if (!isFounder) {
+                      const lastUsed = sendMessageCooldown.get(interaction.user.id);
+  if (lastUsed && now - lastUsed < 60000) {
+    return interaction.reply({
+      content: 'You must wait 1 minute before using this command again.',
+      ephemeral: true
+    });
+  }
+
+  sendMessageCooldown.set(interaction.user.id, now);
+}
+
         return interaction.reply({ content: 'Not authorized.', ephemeral: true });
       }
 
@@ -280,21 +296,14 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle(title)
         .setColor(0x006C35)
-        .setDescription(description || null);
+        let finalDescription = description || '';
+        finalDescription += `\n\nSent by <@${interaction.user.id}>`;
+      
+        .setDescription(finalDescription);
 
       if (imageUrl) embed.setImage(imageUrl);
 
       await channel.send({ embeds: [embed] });
-
-      // ===== AUDIT LOG =====
-      const auditChannel = interaction.guild.channels.cache.find(c => c.name === 'saudia-audit-log');
-      if (auditChannel && auditChannel.isTextBased()) {
-        const auditEmbed = new EmbedBuilder()
-          .setTitle('SendMessage Audit')
-          .setColor(0x006C35)
-          .setDescription(`**User:** <@${interaction.user.id}>\n**Channel:** ${channel}\n**Title:** ${title}`);
-        await auditChannel.send({ embeds: [auditEmbed] });
-      }
 
       return interaction.reply({ content: 'Message sent.', ephemeral: true });
     }
