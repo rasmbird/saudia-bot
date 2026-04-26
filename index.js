@@ -81,6 +81,10 @@ const commands = [
     .addStringOption(o =>
       o.setName('additional_text')
         .setDescription('Optional additional text for the flight hostess')
+        .setRequired(false))
+    .addStringOption(o =>
+      o.setName('image_url')
+        .setDescription('Optional image URL for the embed')
         .setRequired(false)),
 
   // ===== SENDMESSAGE COMMAND =====
@@ -240,7 +244,7 @@ client.on('interactionCreate', async interaction => {
 
         return {
           name: `#${i + 1} ${name}`,
-          value: `Flights: ${p.count}`
+          value: `Flights: ${p.count}` 
         };
       });
 
@@ -266,6 +270,7 @@ client.on('interactionCreate', async interaction => {
       const date = interaction.options.getString('date');
       const time = interaction.options.getString('time');
       const additionalText = interaction.options.getString('additional_text') || '';
+      const imageUrl = interaction.options.getString('image_url') || UPCOMING_FLIGHT_IMAGE;
 
       const [hour, minute] = time.split(':').map(Number);
       const dateTime = new Date(`${date}T${(hour - 3).toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}:00Z`);
@@ -277,7 +282,7 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle('Upcoming Flights')
         .setColor(0x006C35)
-        .setImage(UPCOMING_FLIGHT_IMAGE)
+        .setImage(imageUrl)
         .addFields({ name: `Flight ${flightNumber}`, value: valueText });
 
       const channel = interaction.guild.channels.cache.find(c => c.name === 'departures');
@@ -367,7 +372,7 @@ client.on('interactionCreate', async interaction => {
       if (logs.length > maxButtons) {
         embed.addFields({
           name: 'Note',
-          value: `Showing newest ${maxButtons} logs only (you have ${logs.length}).`
+          value: `Showing newest ${maxButtons} logs only (you have ${logs.length}).` 
         });
       }
 
